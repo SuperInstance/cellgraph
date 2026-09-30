@@ -24,7 +24,7 @@ and a canary. Whether that is enough to earn the word "cell" is the open questio
 prototype is evidence toward it, not proof of it.
 """
 from __future__ import annotations
-import math, json
+import math, json, hashlib
 import numpy as np
 
 # ── the fleet canary ──────────────────────────────────────────────────────────────
@@ -41,15 +41,45 @@ def fnv1a64(b: bytes) -> int:
 def canary_holds() -> bool:
     return fnv1a64("café Δ 日本語".encode()) == CANARY
 
-def tensor_digest(a: np.ndarray) -> int:
-    """The canary, applied to a TENSOR instead of a string.
+# ── TWO hashes, TWO JOBS, AND AN HONEST NOTE ABOUT WHY ───────────────────────────
+# The fleet canary is FNV-1a 64. It is the right choice for PORT CONFORMANCE: no
+# dependencies, and every substrate produces the identical digest for identical bytes.
+#
+# FNV-1a has weak diffusion and is not collision resistant. That is a general property,
+# and on its own it is enough reason not to use a conformance hash as a tamper-evidence
+# hash. So tensors are hashed with BLAKE2b-256.
+#
+# BUT: while making this change I claimed that a specific one-ULP weight perturbation
+# produced differing byte streams with an identical FNV-1a digest. On a clean re-measure
+# the two arrays are byte-identical -- the perturbation rounded away in float32 before it
+# ever reached the cell. There was no collision. The observation was a measurement error
+# and the accusation of the canary was wrong. The switch to BLAKE2b stands on the general
+# property, not on any collision observed here.
+def fnv1a64(b: bytes) -> int:                       # the fleet canary, unchanged
+    h = FNV_OFFSET
+    for x in b:
+        h = ((h ^ x) * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return h
 
-    This is the claim the whole architecture rests on: the fleet digest can guard
-    computation, not only source code. Two substrates that disagree mid-inference
-    produce different digests at the same cell, and that is a witness.
+def tensor_digest(a: np.ndarray) -> str:
+    """BLAKE2b-256 over shape, DTYPE, and bytes, at the array's NATIVE precision.
+
+    THE DEFECT THIS FIXES, found by a test that asserted a fault should be visible:
+
+        the cell outputs are float64, and this function was casting to float32 before
+        hashing. Everything the f32 cast rounds away was INVISIBLE to the witness. A
+        weight perturbation moved 5 activations by 9.8e-10; at f32 the byte streams came
+        out identical and the canary reported "no fault". No hash function fixes that --
+        the blindness was upstream, in the precision of the input to the hash.
+
+    Two rules follow, both of which the test suite now checks:
+      1. hash the array you have, not a narrower version of it;
+      2. put the dtype in the digest, so a float32 array and a float64 array holding the
+         same values cannot produce the same witness.
     """
-    a = np.ascontiguousarray(a, dtype=np.float32)
-    return fnv1a64(a.shape.__repr__().encode() + a.tobytes())
+    a = np.ascontiguousarray(a)
+    hdr = f"{a.dtype.str}|{a.shape}|".encode()
+    return hashlib.blake2b(hdr + a.tobytes(), digest_size=32).hexdigest()
 
 
 # ── the graph ─────────────────────────────────────────────────────────────────────
