@@ -1,0 +1,19 @@
+name: build-and-test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The suite is the README's "What runs" trio: three standalone scripts that
+      # exit non-zero on failure (no pytest tests, no packaging files in this repo,
+      # so there is nothing to pip-install). History-independent: passes identically
+      # on shallow and full checkouts.
+      - run: python3 test_cellgraph.py
+      - run: python3 test_localization.py
+      - run: python3 test_findfault.py
