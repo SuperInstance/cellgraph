@@ -46,12 +46,50 @@ insertion order IS the topological order — there is no separate wiring phase
 
 If that had stayed awkward, the claim would have been wrong and this file would say so.
 
+## The defect the tests found, and why it matters more than the results
+
+The multi-layer tool is `multilayer.py` + `test_findfault.py`, and it works: given a
+reference witness chain and a suspect one, `find_fault()` names the first cell that
+disagrees, having been told nothing. It catches a perturbed weight, a cell whose
+implementation is wrong (`silu → relu`, a removed causal mask, a halved residual), and
+localises each to the exact cell across four blocks.
+
+**Then it caught a bug in its own witness, which is the part worth reading.**
+
+`tensor_digest` was casting every cell output to `float32` before hashing. The outputs are
+`float64`. So a weight perturbation that moved 5 activations by **9.8e-10** produced two
+arrays that were genuinely different and **byte-identical after the cast** — and the
+canary reported *no fault*. The tool was blind, and not because the hash was weak: the
+blindness was upstream, in the precision handed *to* the hash.
+
+> A witness log that cannot see a change is worse than one that does not exist, because it
+> reports "no fault" with the same confidence as everything else.
+
+The fix is two rules, and both are now pinned by tests:
+
+1. **Hash the array you have, not a narrower version of it.**
+2. **Put the dtype inside the digest**, so a `float32` and a `float64` array holding the
+   same values cannot produce the same witness.
+
+After the fix the same 9.8e-10 change is found at `L3.ff_out` — the right cell, four
+layers down, with nothing told.
+
+An honest note on how it went: while fixing it I claimed FNV-1a had produced a collision on
+this pair. On a clean re-measure the two arrays were byte-identical and there was no
+collision at all — the perturbation had rounded away before it ever reached the cell. The
+accusation was wrong and is retracted in the source. The BLAKE2b switch for tensors stands
+on the general property (FNV-1a is a conformance hash, not an integrity hash), not on any
+collision observed here.
+
 ## What runs
 
 ```
-python3 test_cellgraph.py       # 14 checks
+python3 test_cellgraph.py       # 16 checks
 python3 test_localization.py    # the control the first one needs
+python3 test_findfault.py       # 13 checks: the tool, and its resolution limit
 ```
+
+`16/16`, control passes, `13/13`.
 
 `14/14` and the control passes. Cells, in order: `embed, norm_in, q_proj, k_proj, v_proj,
 rope_q, rope_k, attend, attn_weights, o_proj, res_attn, norm_mid, ff_in, act, ff_out,
@@ -94,7 +132,7 @@ prototype is evidence toward it rather than proof of it.
 
 ## Sizes
 
-`cellgraph.py` and `tinyformer.py` together are under 250 lines of actual code, against
+`cellgraph.py` + `tinyformer.py` + `multilayer.py` are ~350 lines of actual code, against
 `simple-llm`'s 950 for a working inference engine. The `simple-llm` standard is the
 discipline being tested: **if you cannot hold the unit, it is not a cell.** A fleet with
 4,869 repositories is the failure mode that standard exists to prevent.
