@@ -1,0 +1,72 @@
+[
+ {
+  "name": "canary agrees with the rest of the fleet",
+  "pass": true,
+  "detail": "0x24a555471370b18d"
+ },
+ {
+  "name": "every cell produces a witness record",
+  "pass": true,
+  "detail": "19 records / 19 cells"
+ },
+ {
+  "name": "probs is a distribution on the last axis",
+  "pass": true,
+  "detail": "max dev 2.22e-16"
+ },
+ {
+  "name": "digests are deterministic across runs",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "a one-element weight change is DETECTED by the canary",
+  "pass": true,
+  "detail": "7 of 19 cell digests moved"
+ },
+ {
+  "name": "the first changed cell is ff_in, the one that consumes W1",
+  "pass": true,
+  "detail": "first changed = ff_in"
+ },
+ {
+  "name": "cells UPSTREAM of the change are unaffected",
+  "pass": true,
+  "detail": "unchanged upstream: 12"
+ },
+ {
+  "name": "cells DOWNSTREAM of the change all moved",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "digests are load-bearing, not constant",
+  "pass": true,
+  "detail": "a different seed gives a different probs digest"
+ },
+ {
+  "name": "attention mask is causal",
+  "pass": true,
+  "detail": "max weight above the diagonal 0.00e+00"
+ },
+ {
+  "name": "attention rows are normalised",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "e-process does not alarm when the model is exactly as claimed",
+  "pass": true,
+  "detail": "max log E = 0.000000"
+ },
+ {
+  "name": "e-process alarms on sustained divergence from the claimed model",
+  "pass": true,
+  "detail": "max log E = 7.690, threshold 2.996"
+ },
+ {
+  "name": "cells are NOT yet cells in the full doctrinal sense",
+  "pass": true,
+  "detail": "no identity, no self-witness, no desire -- this is a graph of named functions"
+ }
+]
