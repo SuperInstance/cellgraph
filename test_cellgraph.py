@@ -89,7 +89,23 @@ g4.e_update(p_claimed=0.30, p_actual=0.90)
 check("e-process alarms on sustained divergence from the claimed model", g4.alarmed(),
       f"max log E = {g4.max_log_e:.3f}, threshold {-np.log(0.05):.3f}")
 
-# 9. the honest limit, asserted rather than asserted-in-prose
+# 9. THE PRECISION TRAP. Found by a test asserting a fault should be visible.
+#    The cell outputs are float64 and the digest was casting to float32, so every change
+#    the cast rounded away was invisible to the witness. No hash function fixes that;
+#    the blindness was in the precision handed TO the hash.
+_np = np
+_f64 = _np.zeros(4, _np.float64)
+_f32 = _np.zeros(4, _np.float32)
+check("a float32 array and a float64 array of the same values hash DIFFERENTLY",
+      tensor_digest(_f64) != tensor_digest(_f32),
+      "dtype is inside the digest, so precision changes are witnessable")
+_tiny_a = _np.array([1.0], _np.float64)
+_tiny_b = _np.array([1.0 + 1e-15], _np.float64)
+check("a 1e-15 change is visible at native precision",
+      tensor_digest(_tiny_a) != tensor_digest(_tiny_b),
+      "the canary must see at the precision the computation actually uses")
+
+# 10. the honest limit, asserted rather than asserted-in-prose
 check("cells are NOT yet cells in the full doctrinal sense",
       True, "no identity, no self-witness, no desire -- this is a graph of named functions")
 
