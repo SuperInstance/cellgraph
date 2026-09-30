@@ -11,9 +11,10 @@ jobs:
         with:
           python-version: "3.12"
       # The suite is the README's "What runs" trio: three standalone scripts that
-      # exit non-zero on failure (no pytest tests, no packaging files in this repo,
-      # so there is nothing to pip-install). History-independent: passes identically
-      # on shallow and full checkouts.
+      # exit non-zero on failure (no pytest tests, no packaging files in this repo).
+      # numpy is the only third-party import (cellgraph.py, tinyformer.py, multilayer.py,
+      # all three test scripts) but no manifest declares it — install it explicitly.
+      - run: python3 -m pip install --quiet numpy
       - run: python3 test_cellgraph.py
       - run: python3 test_localization.py
       - run: python3 test_findfault.py
